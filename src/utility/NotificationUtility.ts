@@ -10,8 +10,8 @@ export const onRequestOTP = async (otp: number, toPhoneNumber: string) => {
   // Download the helper library from https://www.twilio.com/docs/node/install
   // Find your Account SID and Auth Token at twilio.com/console
   // and set the environment variables. See http://twil.io/secure
-  const accountSid = "AC6f7bed68446c1bc017006f7b441c2aff";
-  const authToken = "833783c45d8175eecaebe051ef286e20";
+  const accountSid = `${process.env.TWILIO_ACCOUNT_SID}`;
+  const authToken = `${process.env.TWILIO_AUTH_TOKEN}`;
   const client = require("twilio")(accountSid, authToken);
 
   const message = await client.messages.create({
