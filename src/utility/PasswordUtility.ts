@@ -1,5 +1,4 @@
-import { AuthPayload } from "./../dto/Auth.dto";
-import { VendorPayload } from "./../dto";
+import { AuthPayload } from "./../dto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import express, { Request, Response, NextFunction } from "express";
@@ -20,7 +19,7 @@ export const validatePassword = async (
   return (await generatePassword(enteredPassword, salt)) === savedPassword;
 };
 
-export const generateToken = async (payload: VendorPayload) => {
+export const generateToken = async (payload: AuthPayload) => {
   return jwt.sign(payload, `${process.env.JWT_SECRET}`, { expiresIn: "1d" });
 };
 

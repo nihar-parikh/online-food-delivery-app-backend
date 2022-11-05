@@ -5,7 +5,7 @@ import {
   customerVerify,
   editCustomerProfile,
   getCustomerProfile,
-  requestOtp,
+  requestNewOtp,
 } from "../controllers";
 import { authenticateUser } from "../middleware";
 
@@ -21,13 +21,13 @@ router.post("/login", customerLogin);
 router.use(authenticateUser);
 
 /* ------------------- Verify Customer Account --------------------- */
-router.patch("/verify", customerVerify);
+router.put("/verify", customerVerify);
 
 /* ------------------- OTP / request OTP --------------------- */
-router.get("/otp", requestOtp);
+router.get("/newOTP", requestNewOtp);
 
 /* ------------------- Profile --------------------- */
 router.get("/profile", getCustomerProfile);
-router.patch("/profile", editCustomerProfile);
+router.put("/profile", editCustomerProfile);
 
 export { router as CustomerRoute };

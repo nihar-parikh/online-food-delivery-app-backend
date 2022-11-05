@@ -15,7 +15,17 @@ export class CustomerCreateInput {
   password: string;
 }
 
-export class UserLoginInput {
+export interface CustomerPayload {
+  _id: string;
+  email: string;
+  verified: boolean;
+}
+
+export class CustomerVerifyInput {
+  otp: number;
+}
+
+export class CustomerLoginInput {
   @IsEmail()
   email: string;
 
@@ -23,7 +33,7 @@ export class UserLoginInput {
   password: string;
 }
 
-export class EditCustomerProfileInput {
+export class CustomerEditProfileInput {
   @Length(3, 16)
   firstName: string;
 
