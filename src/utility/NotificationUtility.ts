@@ -14,11 +14,15 @@ export const onRequestOTP = async (otp: number, toPhoneNumber: string) => {
   const authToken = `${process.env.TWILIO_AUTH_TOKEN}`;
   const client = require("twilio")(accountSid, authToken);
 
-  const message = await client.messages.create({
-    body: `Your OTP is ${otp}`,
-    from: "+14246229638",
-    to: `+91${toPhoneNumber}`,
-  });
+  try {
+    const message = await client.messages.create({
+      body: `Your OTP is ${otp}`,
+      from: `${process.env.TWILIO_FROM_PHONE_NUMBER}`,
+      to: `+91${toPhoneNumber}`,
+    });
 
-  return message;
+    return message;
+  } catch (error) {
+    console.log(error);
+  }
 };
