@@ -43,3 +43,13 @@ export class CustomerEditProfileInput {
   @Length(6, 16)
   address: string;
 }
+
+export class CartInputs {
+  _id: string;
+  units: number;
+}
+
+export interface OrderInputs {
+  _id: string;
+  units: number;
+}

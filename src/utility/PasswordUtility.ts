@@ -24,18 +24,23 @@ export const generateToken = async (payload: AuthPayload) => {
 };
 
 export const validateToken = async (req: Request) => {
-  //first set Bearer token in vendor folder in thunder client(postman) ->setting ->any files inside this folder can access this token
-  const token = req.get("Authorization");
+  try {
+    //first set Bearer token in vendor folder in thunder client(postman) ->setting ->any files inside this folder can access this token
+    const token = req.get("Authorization");
 
-  if (token) {
-    const decodedUserData = jwt.verify(
-      token.split(" ")[1],
-      `${process.env.JWT_SECRET}`
-    ) as AuthPayload;
+    if (token) {
+      const decodedUserData = jwt.verify(
+        token.split(" ")[1],
+        `${process.env.JWT_SECRET}`
+      ) as AuthPayload;
 
-    req.user = decodedUserData;
+      req.user = decodedUserData;
 
-    return true;
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.log(error);
+    
   }
-  return false;
 };

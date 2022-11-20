@@ -27,3 +27,20 @@ export interface VendorEditInput {
   phone: string;
   foodType: [string];
 }
+
+export interface OfferAddInput {
+  offerType: string; //VENDOR OR GENERIC
+  vendor: string;
+  title: string; //INR 200 OFF
+  description: string; //WEEKEND OFFER AND all terms and condition
+  minValue: number; //min quantity user should buy to avail offer
+  offerAmount: number;
+  startValidity: Date;
+  endValidity: Date;
+  promoCode: string; //WEEK200
+  promoType: string; //USER //ALL //BANK //CARD
+  bank: [any];
+  bins: [any];
+  pinCode: string; //searching offers by location
+  isActive: boolean;
+}

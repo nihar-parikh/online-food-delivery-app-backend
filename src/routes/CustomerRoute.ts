@@ -1,10 +1,17 @@
 import express, { Request, Response, NextFunction } from "express";
 import {
+  addToCart,
+  applyForOffer,
+  createOrder,
   customerLogin,
   customerSignUp,
   customerVerify,
+  deleteCart,
   editCustomerProfile,
+  getCart,
   getCustomerProfile,
+  getOrderById,
+  getOrders,
   requestNewOtp,
 } from "../controllers";
 import { authenticateUser } from "../middleware";
@@ -29,5 +36,18 @@ router.get("/newOTP", requestNewOtp);
 /* ------------------- Profile --------------------- */
 router.get("/profile", getCustomerProfile);
 router.put("/profile", editCustomerProfile);
+
+/* ------------------- Cart --------------------- */
+router.post("/cart", addToCart);
+router.get("/cart", getCart);
+router.delete("/cart", deleteCart);
+
+/* ------------------- Order --------------------- */
+router.post("/create-order", createOrder);
+router.get("/orders", getOrders);
+router.get("/order/:orderId", getOrderById);
+
+//offers
+router.get("/offer/apply/:offerId", applyForOffer);
 
 export { router as CustomerRoute };

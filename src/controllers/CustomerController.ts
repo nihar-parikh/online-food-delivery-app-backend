@@ -2,12 +2,16 @@ import { plainToClass } from "class-transformer";
 import { validate } from "class-validator";
 import express, { Request, Response, NextFunction } from "express";
 import {
+  CartInputs,
   CustomerCreateInput,
   CustomerEditProfileInput,
   CustomerLoginInput,
   CustomerVerifyInput,
+  OrderInputs,
 } from "../dto";
-import { Customer } from "../models";
+import { Customer, Food } from "../models";
+import { Offer } from "../models/OfferModel";
+import { Order } from "../models/OrderModel";
 import {
   generateOTP,
   generatePassword,
@@ -242,5 +246,246 @@ export const requestNewOtp = async (
         .status(200)
         .json({ message: "New OTP sent to your registered Mobile Number!" });
     }
+  }
+};
+
+//----------cart section---------//
+
+export const addToCart = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const customer = req.user;
+
+    if (customer) {
+      const customerProfile = await Customer.findById(customer._id);
+
+      let cartItems = Array();
+
+      const { _id, units } = <CartInputs>req.body;
+
+      const food = await Food.findById(_id);
+
+      if (food) {
+        if (customerProfile) {
+          cartItems = customerProfile.cart;
+
+          if (cartItems.length > 0) {
+            // check and update
+            let existFoodItems = cartItems.filter(
+              (item) => item.food._id.toString() === _id
+            );
+
+            if (existFoodItems.length > 0) {
+              const index = cartItems.indexOf(existFoodItems[0]);
+
+              if (units > 0) {
+                // const foodId = food._id.toString();
+                cartItems[index] = { food, units };
+              } else {
+                cartItems.splice(index, 1);
+              }
+            } else {
+              cartItems.push({ food, units });
+            }
+          } else {
+            // add new Item
+            cartItems.push({ food, units });
+          }
+
+          if (cartItems) {
+            customerProfile.cart = cartItems as any;
+            const cartResult = await customerProfile.save();
+            return res.status(200).json(cartResult.cart);
+          }
+        }
+      }
+    }
+    return res.status(404).json({ msg: "Unable to add to cart!" });
+  } catch (error) {
+    return res.status(404).json({ msg: "Unable to add to cart!" });
+  }
+};
+
+export const getCart = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const customer = req.user;
+
+  if (customer) {
+    const customerProfile = await Customer.findById(customer._id).populate(
+      "cart.food"
+    );
+
+    if (customerProfile) {
+      return res.status(200).json(customerProfile.cart);
+    }
+  }
+
+  return res.status(400).json({ message: "Cart is Empty!" });
+};
+
+export const deleteCart = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const customer = req.user;
+
+  if (customer) {
+    const customerProfile = await Customer.findById(customer._id)
+      .populate("cart.food")
+      .exec();
+
+    if (customerProfile) {
+      customerProfile.cart = [] as any;
+      const cartResult = await customerProfile.save();
+
+      return res.status(200).json(cartResult);
+    }
+  }
+
+  return res.status(400).json({ message: "cart is Already Empty!" });
+};
+//--------order section --------//
+
+export const createOrder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    //grab login customer
+    const customer = req.user;
+
+    if (customer) {
+      const customerProfile = await Customer.findById(customer._id);
+
+      //create an order ID
+      const orderId = `${Math.floor(Math.random() * 89999) + 1000}`;
+
+      //grab order items from req.body
+      const order = <[OrderInputs]>req.body; //[{id:1,units:3}]
+
+      let orderItems = Array();
+
+      let netAmount = 0.0;
+      let vendorId = "";
+      const foods = await Food.find()
+        .where("_id")
+        .in(order.map((item) => item._id))
+        .exec();
+
+      //calculate order amount
+      foods.map((food) => {
+        order.map(({ _id, units }) => {
+          if (food._id.toString() === _id.toString()) {
+            vendorId = food.vendorId;
+            netAmount += food.price * units;
+            orderItems.push({ food, units });
+          }
+        });
+      });
+
+      if (orderItems) {
+        //create order with item description
+        const newOrder = await Order.create({
+          orderId: orderId,
+          vendorId: vendorId,
+          items: orderItems,
+          totalAmount: netAmount,
+          orderDate: new Date(),
+          paidThrough: "Cash On Delivery",
+          paymentResponse: "",
+          orderStatus: "waiting",
+          remarks: "",
+          deliveryId: "",
+          appliedOffers: false,
+          offerId: "",
+          readyTime: 45,
+        });
+
+        if (newOrder) {
+          //update order to customer profile
+          //once an order is placed, the cart should be empty
+          customerProfile.cart = [] as any;
+          customerProfile.orders.push(newOrder);
+          await customerProfile.save();
+          return res.status(201).json(newOrder);
+        }
+      }
+    }
+  } catch (error) {
+    console.log(error);
+    return res.status(400).json({ message: "Unable to generate new order" });
+  }
+};
+
+export const getOrders = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const customer = req.user;
+
+  if (customer) {
+    const customerProfile = await Customer.findById(customer._id).populate(
+      "orders"
+    );
+
+    if (customerProfile) {
+      return res.status(200).json(customerProfile.orders);
+    }
+  }
+
+  return res.status(400).json({ msg: "Orders not found" });
+};
+
+export const getOrderById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const customer = req.user;
+    const orderId = req.params.orderId;
+
+    const order = await Order.findById(orderId).populate("items.food");
+    if (order) {
+      return res.status(200).json(order);
+    }
+    return res.status(404).json({ message: "order not found" });
+  } catch (error) {
+    return res.status(404).json({ message: "order not found" });
+  }
+};
+
+//offers
+export const applyForOffer = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const customer = req.user;
+    const offerId = req.params.offerId;
+
+    if (customer) {
+      const offer = await Offer.findOne({
+        _id: offerId,
+        isActive: true,
+      }).populate("vendor");
+
+      if (offer) {
+        return res.status(200).json({ message: "Offer is valid", offer });
+      }
+    }
+    return res.status(400).json({ msg: "Offer is Not Valid" });
+  } catch (error) {
+    return res.status(400).json({ msg: "Offer is Not Valid" });
   }
 };

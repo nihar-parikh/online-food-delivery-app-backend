@@ -6,6 +6,13 @@ import {
   addFood,
   getFoods,
   updateVendorCoverImage,
+  getCurrentOrders,
+  getOrderDetails,
+  processOrder,
+  addOffer,
+  editOffer,
+  deleteOffer,
+  getOffers,
 } from "./../controllers";
 import express from "express";
 import { authenticateUser } from "../middleware";
@@ -35,5 +42,16 @@ router.put("/service", updateVendorService);
 
 router.post("/food", images, addFood);
 router.get("/foods", getFoods);
+
+//orders
+router.get("/orders", getCurrentOrders);
+router.get("/order/:orderId", getOrderDetails);
+router.put("/order/:orderId/process", processOrder);
+
+//Offers
+router.post("/offer", addOffer);
+router.get("/offers", getOffers);
+router.put("/offer/:offerId", editOffer);
+router.delete("/offer/:offerId", deleteOffer);
 
 export { router as VendorRoute };
