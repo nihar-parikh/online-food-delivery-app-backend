@@ -489,3 +489,32 @@ export const applyForOffer = async (
     return res.status(400).json({ msg: "Offer is Not Valid" });
   }
 };
+
+//create payment
+export const createPayment = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const customer = req.user;
+
+  const { amount, paymentMode, offerId } = req.body;
+
+  if (offerId) {
+    let payableAmount = 0;
+    const appliedOffer = await Offer.findOne({
+      _id: offerId,
+      isActive: true,
+    });
+
+    if (appliedOffer) {
+      payableAmount = amount - appliedOffer.offerAmount;
+    }
+  }
+
+  //perform payment gateway charge api call
+
+//create record on transaction
+
+//return transaction id
+};

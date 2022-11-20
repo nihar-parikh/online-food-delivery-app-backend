@@ -3,6 +3,7 @@ import {
   addToCart,
   applyForOffer,
   createOrder,
+  createPayment,
   customerLogin,
   customerSignUp,
   customerVerify,
@@ -49,5 +50,8 @@ router.get("/order/:orderId", getOrderById);
 
 //offers
 router.get("/offer/apply/:offerId", applyForOffer);
+
+//payment
+router.post("/create-payment", createPayment);
 
 export { router as CustomerRoute };
