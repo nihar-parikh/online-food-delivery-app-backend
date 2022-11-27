@@ -44,12 +44,36 @@ export class CustomerEditProfileInput {
   address: string;
 }
 
-export class CartInputs {
+export class CartItem {
   _id: string;
   units: number;
 }
 
-export interface OrderInputs {
-  _id: string;
-  units: number;
+export class OrderInputs {
+  transactionId: string;
+  amount: number;
+  items: [CartItem]; //connecting order with cart
+}
+
+export class DeliveryUserCreateInput {
+  @IsEmail()
+  email: string;
+
+  @Length(7, 12)
+  phone: string;
+
+  @Length(6, 12)
+  password: string;
+
+  @Length(3, 12)
+  firstName: string;
+
+  @Length(3, 12)
+  lastName: string;
+
+  @Length(6, 24)
+  address: string;
+
+  @Length(4, 12)
+  pincode: string;
 }

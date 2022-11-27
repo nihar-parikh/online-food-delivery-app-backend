@@ -6,3 +6,6 @@ export * from "./ShoppingController";
 
 export * from "./CustomerController";
 
+export * from "./DeliveryUserController";
+
+

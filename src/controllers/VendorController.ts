@@ -109,12 +109,16 @@ export const updateVendorService = async (
   next: NextFunction
 ) => {
   const user = req.user;
-
+  const { lat, lng } = req.body;
   if (user) {
     const existingVendor = await findVendor(user._id);
 
     if (existingVendor) {
       existingVendor.serviceAvailable = !existingVendor.serviceAvailable;
+      if (lat && lng) {
+        existingVendor.lat = lat;
+        existingVendor.lng = lng;
+      }
 
       const updatedVendor = await existingVendor.save();
 

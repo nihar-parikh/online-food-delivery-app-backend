@@ -1,7 +1,7 @@
 import { generateSalt, generatePassword } from "./../utility/index";
 import { VendorCreateInput } from "./../dto";
 import { Request, Response, NextFunction } from "express";
-import { Vendor } from "../models";
+import { DeliveryUser, Transaction, Vendor } from "../models";
 
 //generic function for finding vendor either by id or email(optional)
 export const findVendor = async (
@@ -57,6 +57,8 @@ export const createVendor = async (
     serviceAvailable: false,
     coverImages: [],
     ratings: 0,
+    lat: 0, //admin won't provide any location for vendor ->it should be updated by vendor only while updating availabilty service
+    lng: 0, //admin won't provide any location for vendor ->it should be updated by vendor only while updating availabilty service
   });
 
   return res.status(201).json(newVendor);
@@ -88,4 +90,66 @@ export const getVendorById = async (
     return res.json({ message: "Vendor not available" });
   }
   return res.json(vendor);
+};
+
+export const getAllTransactions = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const allTransactions = await Transaction.find();
+
+  if (allTransactions) {
+    return res.status(200).json(allTransactions);
+  }
+
+  return res.json({ message: "Transactions data not available" });
+};
+
+export const getTransactionById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const transactionId = req.params.transactionId;
+  const transaction = await Transaction.findById(transactionId);
+
+  if (transaction) {
+    return res.status(200).json(transaction);
+  }
+
+  return res.json({ message: "Transaction data not available" });
+};
+
+export const verifyDeliveryUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const { deliveryUserId, verified } = req.body;
+  if (deliveryUserId) {
+    const deliveryUser = await DeliveryUser.findById(deliveryUserId);
+
+    if (deliveryUser) {
+      deliveryUser.verified = verified;
+
+      await deliveryUser.save();
+      return res.status(200).json(deliveryUser);
+    }
+  }
+  return res.json({ message: "Unable to verify Delivery User" });
+};
+
+export const getDeliveryUsers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const deliveryUsers = await DeliveryUser.find();
+
+  if (deliveryUsers) {
+    return res.status(200).json(deliveryUsers);
+  }
+
+  return res.json({ message: "Unable to get Delivery Users" });
 };

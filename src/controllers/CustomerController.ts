@@ -2,16 +2,22 @@ import { plainToClass } from "class-transformer";
 import { validate } from "class-validator";
 import express, { Request, Response, NextFunction } from "express";
 import {
-  CartInputs,
+  CartItem,
   CustomerCreateInput,
   CustomerEditProfileInput,
   CustomerLoginInput,
   CustomerVerifyInput,
   OrderInputs,
 } from "../dto";
-import { Customer, Food } from "../models";
-import { Offer } from "../models/OfferModel";
-import { Order } from "../models/OrderModel";
+import {
+  Customer,
+  DeliveryUser,
+  Food,
+  Offer,
+  Order,
+  Transaction,
+  Vendor,
+} from "../models";
 import {
   generateOTP,
   generatePassword,
@@ -264,7 +270,7 @@ export const addToCart = async (
 
       let cartItems = Array();
 
-      const { _id, units } = <CartInputs>req.body;
+      const { _id, units } = <CartItem>req.body;
 
       const food = await Food.findById(_id);
 
@@ -351,7 +357,120 @@ export const deleteCart = async (
 
   return res.status(400).json({ message: "cart is Already Empty!" });
 };
+
+//offers
+export const applyForOffer = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const customer = req.user;
+    const offerId = req.params.offerId;
+
+    if (customer) {
+      const offer = await Offer.findOne({
+        _id: offerId,
+        isActive: true,
+      }).populate("vendor");
+
+      if (offer) {
+        return res.status(200).json({ message: "Offer is valid", offer });
+      }
+    }
+    return res.status(400).json({ msg: "Offer is Not Valid" });
+  } catch (error) {
+    return res.status(400).json({ msg: "Offer is Not Valid" });
+  }
+};
+
+//create payment
+export const createPayment = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const customer = req.user;
+
+  const { amount, paymentMode, offerId } = req.body;
+  let payableAmount = 0;
+
+  if (offerId) {
+    const appliedOffer = await Offer.findOne({
+      _id: offerId,
+      isActive: true,
+    });
+
+    if (appliedOffer) {
+      payableAmount = amount - appliedOffer.offerAmount;
+    }
+  }
+
+  //perform payment gateway charge api call
+
+  //create record on transaction
+  const transaction = await Transaction.create({
+    customer: customer._id,
+    vendorId: "",
+    orderId: "",
+    orderValue: payableAmount,
+    offerUsed: offerId || "NA",
+    status: "OPEN", //FAILED//SUCCESS ->Depending on payment response i.e after payment is done
+    paymentMode: paymentMode, //if it is COD then status will be always OPEN
+    paymentResponse: "Payment is Cash on delivery",
+  });
+  //return transaction
+  return res.status(200).json(transaction);
+};
+
 //--------order section --------//
+
+const validateTransaction = async (transactionId: string) => {
+  const currentTransaction = await Transaction.findById(transactionId);
+
+  if (currentTransaction) {
+    if (currentTransaction.status.toLowerCase() !== "failed") {
+      return { status: true, currentTransaction };
+    }
+  }
+  return { status: false, currentTransaction };
+};
+
+//-------------------Delivery Notification------------------------//
+export const assignOrderForDelivery = async (
+  orderId: string,
+  vendorId: string
+) => {
+  //find vendor
+  const vendor = await Vendor.findById(vendorId);
+
+  if (vendor) {
+    const vendorPinCode = vendor.pincode;
+    const vendorLat = vendor.lat;
+    const vendorLng = vendor.lng;
+
+    //find the available Delivery users(array)
+    const deliveryUsers = await DeliveryUser.find({
+      pincode: vendorPinCode,
+      verified: true,
+      isAvailable: true,
+    });
+    if (deliveryUsers) {
+      // Check the nearest delivery user(its remaining to implement) and assign the order
+      //use google map api for finding nearest delivery user
+      const currentOrder = await Order.findById(orderId);
+      
+      if (currentOrder) {
+        //update Delivery ID
+        currentOrder.deliveryId = deliveryUsers[0]._id; //deliveryUser._id is of nearest one
+        await currentOrder.save();
+
+        //Notify to vendor for received new order firebase push notification
+        //remaining
+      }
+    }
+  }
+};
 
 export const createOrder = async (
   req: Request,
@@ -362,14 +481,22 @@ export const createOrder = async (
     //grab login customer
     const customer = req.user;
 
+    //once payment is done succcessfully then only order will be placed and we'll pass transactionId for create order
+    const { transactionId, amount, items } = <OrderInputs>req.body;
+
     if (customer) {
+      const { status, currentTransaction } = await validateTransaction(
+        transactionId
+      );
+
+      if (!status) {
+        return res.status(404).json({ message: "Error while Creating Order!" });
+      }
+
       const customerProfile = await Customer.findById(customer._id);
 
       //create an order ID
       const orderId = `${Math.floor(Math.random() * 89999) + 1000}`;
-
-      //grab order items from req.body
-      const order = <[OrderInputs]>req.body; //[{id:1,units:3}]
 
       let orderItems = Array();
 
@@ -377,12 +504,12 @@ export const createOrder = async (
       let vendorId = "";
       const foods = await Food.find()
         .where("_id")
-        .in(order.map((item) => item._id))
+        .in(items.map((item) => item._id))
         .exec();
 
       //calculate order amount
       foods.map((food) => {
-        order.map(({ _id, units }) => {
+        items.map(({ _id, units }) => {
           if (food._id.toString() === _id.toString()) {
             vendorId = food.vendorId;
             netAmount += food.price * units;
@@ -398,14 +525,15 @@ export const createOrder = async (
           vendorId: vendorId,
           items: orderItems,
           totalAmount: netAmount,
+          paidAmount: amount,
           orderDate: new Date(),
-          paidThrough: "Cash On Delivery",
-          paymentResponse: "",
+          // paidThrough: "Cash On Delivery",
+          // paymentResponse: "",
           orderStatus: "waiting",
           remarks: "",
           deliveryId: "",
-          appliedOffers: false,
-          offerId: "",
+          // appliedOffers: false,
+          // offerId: "",
           readyTime: 45,
         });
 
@@ -414,6 +542,13 @@ export const createOrder = async (
           //once an order is placed, the cart should be empty
           customerProfile.cart = [] as any;
           customerProfile.orders.push(newOrder);
+
+          currentTransaction.vendorId = vendorId;
+          currentTransaction.orderId = orderId;
+          currentTransaction.status = "CONFIRMED";
+
+          await currentTransaction.save();
+          await assignOrderForDelivery(newOrder._id, vendorId);
           await customerProfile.save();
           return res.status(201).json(newOrder);
         }
@@ -462,59 +597,4 @@ export const getOrderById = async (
   } catch (error) {
     return res.status(404).json({ message: "order not found" });
   }
-};
-
-//offers
-export const applyForOffer = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const customer = req.user;
-    const offerId = req.params.offerId;
-
-    if (customer) {
-      const offer = await Offer.findOne({
-        _id: offerId,
-        isActive: true,
-      }).populate("vendor");
-
-      if (offer) {
-        return res.status(200).json({ message: "Offer is valid", offer });
-      }
-    }
-    return res.status(400).json({ msg: "Offer is Not Valid" });
-  } catch (error) {
-    return res.status(400).json({ msg: "Offer is Not Valid" });
-  }
-};
-
-//create payment
-export const createPayment = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const customer = req.user;
-
-  const { amount, paymentMode, offerId } = req.body;
-
-  if (offerId) {
-    let payableAmount = 0;
-    const appliedOffer = await Offer.findOne({
-      _id: offerId,
-      isActive: true,
-    });
-
-    if (appliedOffer) {
-      payableAmount = amount - appliedOffer.offerAmount;
-    }
-  }
-
-  //perform payment gateway charge api call
-
-//create record on transaction
-
-//return transaction id
 };
